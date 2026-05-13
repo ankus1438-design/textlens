@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TextLens – PDF & Image OCR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141418;
+    --card: #1a1a20;
+    --border: #2a2a35;
+    --accent: #BA7517;
+    --accent2: #D85A30;
+    --text: #f0ede8;
+    --muted: #7a7a8a;
+    --success: #4caf7d;
+    --danger: #e05c5c;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(186,117,23,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(216,90,48,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1020px;
+    margin: 0 auto;
+    padding: 0 20px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    padding: 32px 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .logo-text h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-text p  { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .badge {
+    margin-left: auto;
+    background: rgba(186,117,23,0.12);
+    border: 1px solid rgba(186,117,23,0.3);
+    color: var(--accent);
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 680px) { .main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .panel-head-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .panel-head span { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .panel-head-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 99px;
+    border: 1px solid rgba(186,117,23,0.35);
+    background: rgba(186,117,23,0.08);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .drop-zone {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 32px 24px;
+    cursor: pointer;
+    border: 2px dashed transparent;
+    transition: border-color 0.2s, background 0.2s;
+    min-height: 280px;
+  }
+
+  .drop-zone:hover, .drop-zone.over {
+    border-color: var(--accent);
+    background: rgba(186,117,23,0.04);
+  }
+
+  .drop-zone i { font-size: 42px; color: var(--muted); transition: color 0.2s, transform 0.2s; }
+  .drop-zone:hover i { color: var(--accent); transform: translateY(-3px); }
+  .drop-zone h3 { font-size: 16px; font-weight: 700; text-align: center; }
+  .drop-zone p { font-size: 12px; color: var(--muted); text-align: center; font-family: 'DM Mono', monospace; line-height: 1.7; }
+
+  .browse-label {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .browse-label:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+  .browse-label i { font-size: 15px; }
+  #fileInput { display: none; }
+
+  .file-preview {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    min-height: 200px;
+  }
+
+  .file-preview img { max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 8px; }
+
+  .pdf-thumb { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pdf-thumb i { font-size: 54px; color: var(--accent2); }
+  .pdf-thumb-name { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); text-align: center; word-break: break-all; max-width: 180px; }
+
+  .action-bar {
+    padding: 13px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 9px;
+  }
+
+  .btn-extract {
+    flex: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-extract:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(186,117,23,0.35); }
+  .btn-extract:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-extract i { font-size: 16px; }
+
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 11px 13px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-icon:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-icon i { font-size: 17px; }
+
+  .output-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 10px;
+    min-height: 400px;
+  }
+
+  .stats-row { display: flex; gap: 16px; }
+  .stat { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); }
+  .stat b { color: var(--accent); font-weight: 500; }
+
+  .error-box {
+    background: rgba(224,92,92,0.1);
+    border: 1px solid rgba(224,92,92,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--danger);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .error-box i { font-size: 16px; flex-shrink: 0; }
+
+  textarea.out {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    resize: none;
+    min-height: 280px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  textarea.out:focus { border-color: rgba(186,117,23,0.45); }
+  textarea.out::placeholder { color: var(--muted); opacity: 0.7; }
+
+  .chip-row { display: flex; gap: 8px; }
+
+  .chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 12px;
+    border-radius: 7px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .chip:hover { background: rgba(186,117,23,0.07); border-color: rgba(186,117,23,0.4); color: var(--accent); }
+  .chip.ok { background: rgba(76,175,125,0.1); border-color: var(--success); color: var(--success); }
+  .chip i { font-size: 14px; }
+
+  .loading-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-lbl { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo-icon">🔍</div>
+    <div class="logo-text">
+      <h1>TextLens</h1>
+      <p>PDF & Image → Editable Text</p>
+    </div>
+    <div class="badge">AI Powered</div>
+  </header>
+
+  <div class="main">
+
+    <!-- LEFT: Upload Panel -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-dot" style="background:var(--accent)"></div>
+        <span>Upload File</span>
+        <span class="panel-head-badge">Claude Vision</span>
+      </div>
+
+      <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+        <i class="ti ti-file-upload"></i>
+        <h3>Drop a PDF or image here</h3>
+        <p>Supports PDF, JPG, PNG, WEBP<br>Max size: 10 MB</p>
+        <label class="browse-label" onclick="event.stopPropagation()">
+          <i class="ti ti-folder-open"></i>
+          Browse file
+          <input type="file" id="fileInput" accept=".pdf,image/*">
+        </label>
+      </div>
+
+      <div id="previewArea" class="file-preview" style="display:none"></div>
+
+      <div class="action-bar">
+        <button class="btn-extract" id="extractBtn" disabled onclick="extractText()">
+          <i class="ti ti-sparkles"></i> Extract Text
+        </button>
+        <button class="btn-icon" onclick="clearAll()" title="Clear">
+          <i class="ti ti-trash"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Output Panel -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-dot" style="background:var(--accent2)"></div>
+        <span>Extracted Text</span>
+      </div>
+
+      <div id="loadingBox" class="loading-box" style="display:none">
+        <div class="spinner"></div>
+        <div class="loading-lbl" id="loadingLbl">Analyzing file…</div>
+      </div>
+
+      <div id="outputBody" class="output-body">
+        <div id="statsRow" class="stats-row" style="display:none">
+          <div class="stat">Words: <b id="wc">0</b></div>
+          <div class="stat">Chars: <b id="cc">0</b></div>
+          <div class="stat">Lines: <b id="lc">0</b></div>
+        </div>
+
+        <div id="errBox" class="error-box" style="display:none">
+          <i class="ti ti-alert-circle"></i>
+          <span id="errMsg"></span>
+        </div>
+
+        <textarea class="out" id="outText"
+          placeholder="Extracted text will appear here…&#10;&#10;You can edit it directly after extraction."
+          oninput="updateStats()"></textarea>
+
+        <div class="chip-row">
+          <button class="chip" id="copyBtn" onclick="copyText()">
+            <i class="ti ti-copy"></i> Copy
+          </button>
+          <button class="chip" onclick="downloadText()">
+            <i class="ti ti-download"></i> Download
+          </button>
+          <button class="chip" onclick="clearOutput()">
+            <i class="ti ti-eraser"></i> Clear
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentFile = null;
+  let currentBase64 = null;
+  let currentMediaType = null;
+
+  const fileInput    = document.getElementById('fileInput');
+  const dropZone     = document.getElementById('dropZone');
+  const previewArea  = document.getElementById('previewArea');
+  const extractBtn   = document.getElementById('extractBtn');
+  const outText      = document.getElementById('outText');
+  const loadingBox   = document.getElementById('loadingBox');
+  const loadingLbl   = document.getElementById('loadingLbl');
+  const outputBody   = document.getElementById('outputBody');
+  const statsRow     = document.getElementById('statsRow');
+  const errBox       = document.getElementById('errBox');
+  const errMsg       = document.getElementById('errMsg');
+
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+
+  function handleFile(file) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      showError('File too large. Maximum size is 10 MB.');
+      return;
+    }
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      currentBase64 = dataUrl.split(',')[1];
+      currentMediaType = file.type || (file.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+
+      dropZone.style.display = 'none';
+      previewArea.style.display = 'flex';
+      previewArea.innerHTML = '';
+
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.alt = file.name;
+        previewArea.appendChild(img);
+      } else {
+        const thumb = document.createElement('div');
+        thumb.className = 'pdf-thumb';
+        thumb.innerHTML = `<i class="ti ti-file-type-pdf"></i><div class="pdf-thumb-name">${file.name}</div>`;
+        previewArea.appendChild(thumb);
+      }
+      extractBtn.disabled = false;
+      hideError();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function extractText() {
+    if (!currentBase64) return;
+    extractBtn.disabled = true;
+    outputBody.style.display = 'none';
+    loadingBox.style.display = 'flex';
+    hideError();
+
+    const labels = ['Analyzing file…', 'Reading content…', 'Extracting text…', 'Almost done…'];
+    let li = 0;
+    const interval = setInterval(() => { loadingLbl.textContent = labels[++li % labels.length]; }, 1400);
+
+    try {
+      let content;
+      if (currentMediaType === 'application/pdf') {
+        content = [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: currentBase64 } },
+          { type: 'text', text: 'Extract ALL text from this PDF exactly as it appears. Preserve paragraphs, line breaks, and structure. Output only the extracted text with no commentary.' }
+        ];
+      } else {
+        content = [
+          { type: 'image', source: { type: 'base64', media_type: currentMediaType, data: currentBase64 } },
+          { type: 'text', text: 'Extract ALL text from this image exactly as it appears. Preserve layout, line breaks, and structure. Output only the extracted text with no commentary.' }
+        ];
+      }
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content }]
+        })
+      });
+
+      clearInterval(interval);
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error?.message || `API error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.content?.map(b => b.text || '').join('') || '';
+      outText.value = text.trim();
+      updateStats();
+      statsRow.style.display = text.trim() ? 'flex' : 'none';
+
+    } catch (err) {
+      clearInterval(interval);
+      showError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      loadingBox.style.display = 'none';
+      outputBody.style.display = 'flex';
+      extractBtn.disabled = false;
+    }
+  }
+
+  function updateStats() {
+    const v = outText.value.trim();
+    if (!v) { statsRow.style.display = 'none'; return; }
+    statsRow.style.display = 'flex';
+    document.getElementById('wc').textContent = v.split(/\s+/).filter(Boolean).length;
+    document.getElementById('cc').textContent = v.length;
+    document.getElementById('lc').textContent = v.split('\n').length;
+  }
+
+  function copyText() {
+    const t = outText.value.trim();
+    if (!t) return;
+    navigator.clipboard.writeText(t).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.classList.add('ok');
+      btn.innerHTML = '<i class="ti ti-check"></i> Copied!';
+      setTimeout(() => {
+        btn.classList.remove('ok');
+        btn.innerHTML = '<i class="ti ti-copy"></i> Copy';
+      }, 2000);
+    });
+  }
+
+  function downloadText() {
+    const t = outText.value.trim();
+    if (!t) return;
+    const a = document.createElement('a');
+    a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(t);
+    a.download = (currentFile?.name?.replace(/\.[^.]+$/, '') || 'extracted') + '_text.txt';
+    a.click();
+  }
+
+  function clearOutput() { outText.value = ''; updateStats(); hideError(); }
+
+  function clearAll() {
+    currentFile = null;
+    currentBase64 = null;
+    currentMediaType = null;
+    dropZone.style.display = 'flex';
+    previewArea.style.display = 'none';
+    previewArea.innerHTML = '';
+    extractBtn.disabled = true;
+    fileInput.value = '';
+    clearOutput();
+  }
+
+  function showError(msg) { errMsg.textContent = msg; errBox.style.display = 'flex'; }
+  function hideError() { errBox.style.display = 'none'; }
+</script>
+</body>
+</html>
